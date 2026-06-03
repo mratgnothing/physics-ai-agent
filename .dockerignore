@@ -1,0 +1,9 @@
+node_modules
+.env
+uploads
+public/results
+server.out.log
+server.err.log
+scripts/analysis_*.py
+scripts/.idea
+.git

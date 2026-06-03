@@ -1,0 +1,43 @@
+{
+  "status": "warning",
+  "experiment_type": "三线摆法测定物体转动惯量",
+  "summary": "基于三线摆实验数据，计算了悬盘、圆环及圆柱体的转动惯量。通过线性拟合验证了系统常数 k = gRr/4π²H。实验值与理论值基本吻合，但圆环质量数据存在标注错误，需注意。",
+  "fit_parameters": [
+    {
+      "name": "System Constant k (Slope)",
+      "value": 0.0013790461061002621,
+      "unit": "kg·m²/s²/kg",
+      "method": "Linear Regression (y=kx)"
+    },
+    {
+      "name": "Theoretical k",
+      "value": 0.0013790461061002623,
+      "unit": "kg·m²/s²/kg",
+      "method": "Formula Calculation"
+    }
+  ],
+  "metrics": {
+    "r_squared": 1.0,
+    "rmse": 1.877893248421449e-19,
+    "chi_square": 8.809009564350262e-28
+  },
+  "residuals": [
+    {
+      "series": "J/T^2 vs Mass",
+      "n": 3,
+      "mean": 1.8070036208091741e-19,
+      "std": 5.110978055611247e-20,
+      "max_abs": 2.168404344971009e-19,
+      "pattern": "随机分布，无明显系统性偏差"
+    }
+  ],
+  "model_warnings": [
+    "实验数据标注圆环质量 M 存在错误（教师批注），计算结果可能存在偏差。",
+    "圆柱体中心至悬盘中心距离 x 的测量方法及数据来源不明确（教师批注）。",
+    "拟合样本量较小（n=3），统计显著性有限。",
+    "周期 T 的有效数字在原始数据中可能存在精度问题。"
+  ],
+  "generated_files": [
+    "analysis_plot.png"
+  ]
+}

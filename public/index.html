@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>物理实验智能诊断 Agent</title>
+  <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true,
+        processEnvironments: true
+      },
+      options: {
+        skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+    }
+
+    body {
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+
+    .stage-item {
+      min-width: 84px;
+    }
+
+    .prose h1,
+    .prose h2,
+    .prose h3 {
+      color: #0f766e;
+      margin-top: 1.1rem;
+      margin-bottom: 0.55rem;
+    }
+
+    .prose p {
+      line-height: 1.7;
+    }
+
+    .prose pre {
+      background: #111827;
+      color: #d1fae5;
+      border-radius: 8px;
+      padding: 1rem;
+      overflow: auto;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-zinc-100 text-zinc-900">
+  <main class="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+    <header class="mb-5 flex flex-col gap-4 border-b border-zinc-300 pb-5 md:flex-row md:items-end md:justify-between">
+      <div>
+        <p class="text-sm font-semibold text-teal-700">Physics AI Agent v2.0</p>
+        <h1 class="mt-1 text-3xl font-bold tracking-normal text-zinc-950">物理实验智能诊断工作台</h1>
+        <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">讲义理解、代码生成、真实 Python 计算、残差诊断和改进建议串成一个可复核流程。</p>
+      </div>
+      <div class="grid grid-cols-3 gap-2 text-center text-xs">
+        <div class="rounded-lg border border-zinc-300 bg-white px-3 py-2">
+          <div class="font-bold text-teal-700">RAG</div>
+          <div class="text-zinc-500">讲义约束</div>
+        </div>
+        <div class="rounded-lg border border-zinc-300 bg-white px-3 py-2">
+          <div class="font-bold text-amber-700">Python</div>
+          <div class="text-zinc-500">真实执行</div>
+        </div>
+        <div class="rounded-lg border border-zinc-300 bg-white px-3 py-2">
+          <div class="font-bold text-indigo-700">诊断</div>
+          <div class="text-zinc-500">物理解释</div>
+        </div>
+      </div>
+    </header>
+
+    <section class="grid gap-5 lg:grid-cols-[minmax(0,420px),1fr]">
+      <div class="rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
+        <form id="uploadForm" enctype="multipart/form-data" class="space-y-5">
+          <div class="grid gap-4 border-b border-zinc-200 pb-5">
+            <div>
+              <label class="mb-2 block text-sm font-semibold text-zinc-800">API Key</label>
+              <input type="password" id="apiKeyInput" name="apiKey" autocomplete="off" placeholder="留空使用服务器测试 Key" class="block w-full rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm focus:border-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-100">
+            </div>
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label class="mb-2 block text-sm font-semibold text-zinc-800">模型策略</label>
+                <select id="modelStrategy" name="modelStrategy" class="block w-full rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm focus:border-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-100">
+                  <option value="default">默认多 Agent 模型</option>
+                  <option value="single">统一使用所选模型</option>
+                </select>
+              </div>
+              <div>
+                <label class="mb-2 block text-sm font-semibold text-zinc-800">模型</label>
+                <select id="modelSelect" name="model" class="block w-full rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm focus:border-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-100">
+                  <option value="Pro/moonshotai/Kimi-K2.5">Kimi-K2.5</option>
+                  <option value="Pro/zai-org/GLM-4.7" selected>GLM-4.7</option>
+                  <option value="Pro/deepseek-ai/DeepSeek-V3">DeepSeek-V3</option>
+                  <option value="deepseek-ai/DeepSeek-V3">DeepSeek-V3 标准版</option>
+                  <option value="Qwen/Qwen3-235B-A22B-Instruct-2507">Qwen3-235B</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label class="mb-2 block text-sm font-semibold text-zinc-800">自定义模型</label>
+              <input type="text" id="customModelInput" name="customModel" placeholder="例如 vendor/model-name" class="block w-full rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm focus:border-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-100">
+            </div>
+          </div>
+          <div>
+            <label class="mb-2 block text-sm font-semibold text-zinc-800">实验讲义</label>
+            <input type="file" name="manualFile" accept=".txt,.pdf" required class="block w-full rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-teal-700 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-teal-800">
+          </div>
+          <div>
+            <label class="mb-2 block text-sm font-semibold text-zinc-800">原始数据</label>
+            <input type="file" name="dataFile" accept=".csv,.txt" class="block w-full rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-zinc-700 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-zinc-800">
+          </div>
+          <button type="submit" id="submitBtn" class="w-full rounded-md bg-teal-700 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-zinc-400">开始智能分析</button>
+        </form>
+
+        <div id="progressContainer" class="mt-6 hidden">
+          <div class="mb-2 flex items-center justify-between">
+            <span id="statusText" class="text-sm font-semibold text-teal-700">准备中...</span>
+            <span id="progressPercent" class="text-sm font-semibold text-zinc-600">0%</span>
+          </div>
+          <div class="h-2 w-full overflow-hidden rounded-md bg-zinc-200">
+            <div id="progressBar" class="h-2 rounded-md bg-teal-700 transition-all duration-500" style="width: 0%"></div>
+          </div>
+          <div id="stageIndicator" class="mt-4 grid grid-cols-5 gap-2 text-center text-xs text-zinc-400">
+            <span class="stage-item rounded-md border border-zinc-200 px-2 py-2" data-stage="1">讲义理解</span>
+            <span class="stage-item rounded-md border border-zinc-200 px-2 py-2" data-stage="2">代码生成</span>
+            <span class="stage-item rounded-md border border-zinc-200 px-2 py-2" data-stage="3">真实计算</span>
+            <span class="stage-item rounded-md border border-zinc-200 px-2 py-2" data-stage="4">物理诊断</span>
+            <span class="stage-item rounded-md border border-zinc-200 px-2 py-2" data-stage="5">优化建议</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="emptyState" class="rounded-lg border border-dashed border-zinc-300 bg-white p-6 shadow-sm">
+        <div class="grid gap-4 md:grid-cols-3">
+          <div class="rounded-lg border border-zinc-200 p-4">
+            <div class="text-sm font-bold text-zinc-900">1. 结构化讲义</div>
+            <p class="mt-2 text-sm leading-6 text-zinc-600">提取公式、物理假设、仪器精度与非理想因素。</p>
+          </div>
+          <div class="rounded-lg border border-zinc-200 p-4">
+            <div class="text-sm font-bold text-zinc-900">2. 可执行计算</div>
+            <p class="mt-2 text-sm leading-6 text-zinc-600">自动生成并运行 Python，输出拟合参数和残差统计。</p>
+          </div>
+          <div class="rounded-lg border border-zinc-200 p-4">
+            <div class="text-sm font-bold text-zinc-900">3. 物理归因</div>
+            <p class="mt-2 text-sm leading-6 text-zinc-600">用真实结果支撑诊断，避免只靠口头描述残差。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="result" class="mt-6 hidden"></section>
+
+    <footer class="mt-10 border-t border-zinc-300 py-6 text-center text-xs text-zinc-500">
+      <p class="font-medium">东南大学 吴健雄学院 陈鹏宇 61524935</p>
+      <p class="mt-1">Physics AI Agent upgraded · 真实计算闭环版本</p>
+    </footer>
+  </main>
+
+  <script>
+    const uploadForm = document.getElementById('uploadForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar = document.getElementById('progressBar');
+    const progressPercent = document.getElementById('progressPercent');
+    const statusText = document.getElementById('statusText');
+    const resultDiv = document.getElementById('result');
+    const emptyState = document.getElementById('emptyState');
+    const apiKeyInput = document.getElementById('apiKeyInput');
+    const modelStrategy = document.getElementById('modelStrategy');
+    const modelSelect = document.getElementById('modelSelect');
+    const customModelInput = document.getElementById('customModelInput');
+    let currentReport = null;
+    let lastReportSelection = { sectionKey: '', text: '' };
+
+    marked.setOptions({ breaks: true, gfm: true });
+    restoreModelSettings();
+    loadServerConfig();
+
+    [modelStrategy, modelSelect, customModelInput].forEach((item) => {
+      item.addEventListener('change', persistModelSettings);
+      item.addEventListener('input', persistModelSettings);
+    });
+
+    uploadForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = '分析中...';
+      progressContainer.classList.remove('hidden');
+      resultDiv.classList.add('hidden');
+      emptyState.classList.remove('hidden');
+      resetStages();
+      updateProgress(0, '正在上传并初始化...');
+
+      try {
+        const formData = new FormData(event.target);
+        const customModel = customModelInput.value.trim();
+        if (customModel) {
+          formData.set('model', customModel);
+        }
+
+        const response = await fetch('/analyze', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || '服务器响应错误');
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            const data = JSON.parse(line);
+            if (data.type === 'progress') {
+              updateProgress(data.progress, data.status, data.stage);
+            }
+            if (data.type === 'result') {
+              showResult(data.report);
+            }
+            if (data.type === 'error') {
+              throw new Error(data.error);
+            }
+          }
+        }
+      } catch (error) {
+        showInlineError(error.message);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '开始智能分析';
+      }
+    });
+
+    resultDiv.addEventListener('click', async (event) => {
+      const button = event.target.closest('[data-ask-action]');
+      if (!button) return;
+      await askSectionAgent(button.dataset.askAction, button);
+    });
+
+    document.addEventListener('selectionchange', () => {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) return;
+      const text = selection.toString().trim();
+      if (!text) return;
+      const range = selection.getRangeAt(0);
+      const node = range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+        ? range.commonAncestorContainer.parentElement
+        : range.commonAncestorContainer;
+      if (node && node.closest('textarea,input,button')) return;
+      const sectionEl = node ? node.closest('[data-report-section]') : null;
+      if (sectionEl && resultDiv.contains(sectionEl)) {
+        lastReportSelection = {
+          sectionKey: sectionEl.dataset.reportSection || '',
+          text
+        };
+      }
+    });
+
+    function updateProgress(percent, status, stage) {
+      progressBar.style.width = `${percent}%`;
+      progressPercent.textContent = `${percent}%`;
+      statusText.textContent = status;
+
+      if (!stage) return;
+      document.querySelectorAll('.stage-item').forEach((item) => {
+        const itemStage = Number(item.dataset.stage);
+        item.classList.remove('border-teal-700', 'bg-teal-50', 'text-teal-800', 'font-bold', 'animate-pulse');
+        item.classList.add('border-zinc-200', 'text-zinc-400');
+
+        if (itemStage < stage) {
+          item.classList.add('border-teal-700', 'bg-teal-50', 'text-teal-800', 'font-bold');
+          item.classList.remove('border-zinc-200', 'text-zinc-400');
+        } else if (itemStage === stage) {
+          item.classList.add('border-amber-600', 'bg-amber-50', 'text-amber-800', 'font-bold', 'animate-pulse');
+          item.classList.remove('border-zinc-200', 'text-zinc-400');
+        }
+      });
+    }
+
+    function resetStages() {
+      document.querySelectorAll('.stage-item').forEach((item) => {
+        item.className = 'stage-item rounded-md border border-zinc-200 px-2 py-2 text-zinc-400';
+      });
+    }
+
+    function showInlineError(message) {
+      emptyState.classList.add('hidden');
+      resultDiv.classList.remove('hidden');
+      resultDiv.innerHTML = `
+        <div class="rounded-lg border border-red-200 bg-red-50 p-5 text-red-800">
+          <div class="font-bold">分析失败</div>
+          <p class="mt-2 text-sm">${escapeHtml(message)}</p>
+        </div>
+      `;
+    }
+
+    function showResult(report) {
+      currentReport = report;
+      emptyState.classList.add('hidden');
+      resultDiv.classList.remove('hidden');
+
+      const execution = report.execution || {};
+      const resultJson = execution.resultJson || {};
+      const imageArtifacts = (execution.artifacts || []).filter((item) => ['png', 'jpg', 'jpeg', 'svg'].includes(item.type));
+      const fileArtifacts = (execution.artifacts || []).filter((item) => !['png', 'jpg', 'jpeg', 'svg'].includes(item.type));
+
+      resultDiv.innerHTML = `
+        <div class="mb-5 rounded-lg border border-zinc-300 bg-white p-5 shadow-sm">
+          <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 class="text-2xl font-bold text-zinc-950">智能实验诊断报告</h2>
+              <p class="mt-1 text-sm text-zinc-600">运行编号：${escapeHtml(execution.runId || '-')}</p>
+              <p class="mt-1 text-xs text-zinc-500">模型：${escapeHtml(formatModelConfig(report.modelConfig))}</p>
+            </div>
+            <div class="rounded-md px-3 py-2 text-sm font-bold ${execution.ok ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200'}">
+              ${execution.ok ? 'Python 执行成功' : 'Python 执行需复核'}
+            </div>
+          </div>
+          ${renderMetricStrip(resultJson, execution)}
+        </div>
+
+        <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr),360px]">
+          <div class="space-y-5">
+            ${renderSection('讲义核心要点', report.rag, 'teal', 'rag')}
+            ${renderComputationSection(resultJson, imageArtifacts, fileArtifacts, execution)}
+            ${renderSection('物理深度诊断', report.diagnosis, 'indigo', 'diagnosis')}
+            ${renderSection('实验优化建议', report.advice, 'amber', 'advice')}
+          </div>
+          <aside class="space-y-5">
+            ${renderCodePanel(report.pythonCode || '')}
+            ${renderExecutionLog(execution)}
+          </aside>
+        </div>
+      `;
+
+      resultDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (window.MathJax && window.MathJax.typesetPromise) {
+        window.MathJax.typesetPromise([resultDiv]).catch((error) => console.error('MathJax 渲染失败:', error));
+      }
+    }
+
+    function renderMetricStrip(resultJson, execution) {
+      const metrics = resultJson.metrics || {};
+      const cards = [
+        ['耗时', execution.durationMs ? `${(execution.durationMs / 1000).toFixed(1)} s` : '-'],
+        ['RMSE', formatValue(metrics.rmse)],
+        ['R²', formatValue(metrics.r_squared)],
+        ['状态', resultJson.status || (execution.ok ? 'ok' : 'warning')]
+      ];
+
+      return `
+        <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          ${cards.map(([label, value]) => `
+            <div class="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+              <div class="text-xs font-semibold text-zinc-500">${escapeHtml(label)}</div>
+              <div class="mt-1 text-lg font-bold text-zinc-950">${escapeHtml(String(value))}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function renderSection(title, markdown, tone, key) {
+      const toneClass = {
+        teal: 'border-teal-200',
+        indigo: 'border-indigo-200',
+        amber: 'border-amber-200'
+      }[tone] || 'border-zinc-200';
+
+      return `
+        <section class="rounded-lg border ${toneClass} bg-white p-5 shadow-sm" data-report-section="${escapeHtml(key)}" data-section-title="${escapeHtml(title)}">
+          <h3 class="mb-4 text-lg font-bold text-zinc-950">${escapeHtml(title)}</h3>
+          <div class="prose max-w-none text-zinc-700" data-section-content>${renderMarkdown(markdown || '')}</div>
+          ${renderAskPanel(key)}
+        </section>
+      `;
+    }
+
+    function renderComputationSection(resultJson, imageArtifacts, fileArtifacts, execution) {
+      const params = Array.isArray(resultJson.fit_parameters) ? resultJson.fit_parameters : [];
+      const residuals = Array.isArray(resultJson.residuals) ? resultJson.residuals : [];
+      const warnings = Array.isArray(resultJson.model_warnings) ? resultJson.model_warnings : [];
+
+      return `
+        <section class="rounded-lg border border-emerald-200 bg-white p-5 shadow-sm" data-report-section="computation" data-section-title="真实计算结果">
+          <div class="mb-4 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h3 class="text-lg font-bold text-zinc-950">真实计算结果</h3>
+              <p class="mt-1 text-sm leading-6 text-zinc-600">${escapeHtml(resultJson.summary || '脚本已执行，结构化结果见下方。')}</p>
+            </div>
+            <span class="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-semibold text-zinc-600">Exit ${escapeHtml(String(execution.exitCode ?? '-'))}</span>
+          </div>
+
+          ${warnings.length ? `
+            <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              ${warnings.map((item) => `<div>${escapeHtml(item)}</div>`).join('')}
+            </div>
+          ` : ''}
+
+          ${params.length ? `
+            <div class="mb-5 overflow-x-auto">
+              <table class="w-full min-w-[640px] border-collapse text-sm">
+                <thead>
+                  <tr class="border-b border-zinc-200 bg-zinc-50 text-left text-zinc-600">
+                    <th class="px-3 py-2">参数</th>
+                    <th class="px-3 py-2">数值</th>
+                    <th class="px-3 py-2">单位</th>
+                    <th class="px-3 py-2">方法</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${params.map((item) => `
+                    <tr class="border-b border-zinc-100">
+                      <td class="px-3 py-2 font-semibold">${escapeHtml(item.name || '-')}</td>
+                      <td class="px-3 py-2">${escapeHtml(String(formatValue(item.value)))}</td>
+                      <td class="px-3 py-2">${escapeHtml(item.unit || '-')}</td>
+                      <td class="px-3 py-2">${escapeHtml(item.method || '-')}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          ` : ''}
+
+          ${residuals.length ? `
+            <div class="mb-5 grid gap-3 md:grid-cols-2">
+              ${residuals.map((item) => `
+                <div class="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+                  <div class="font-bold text-zinc-900">${escapeHtml(item.series || 'Residual')}</div>
+                  <div class="mt-2 grid grid-cols-3 gap-2 text-xs">
+                    <div><span class="text-zinc-500">n</span><div class="font-bold">${escapeHtml(String(formatValue(item.n)))}</div></div>
+                    <div><span class="text-zinc-500">std</span><div class="font-bold">${escapeHtml(String(formatValue(item.std)))}</div></div>
+                    <div><span class="text-zinc-500">max</span><div class="font-bold">${escapeHtml(String(formatValue(item.max_abs)))}</div></div>
+                  </div>
+                  <p class="mt-3 text-sm leading-6 text-zinc-600">${escapeHtml(item.pattern || '')}</p>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+
+          ${imageArtifacts.length ? `
+            <div class="grid gap-4 md:grid-cols-2">
+              ${imageArtifacts.map((item) => `
+                <figure class="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                  <img src="${item.url}" alt="${escapeHtml(item.name)}" class="w-full rounded-md border border-zinc-200 bg-white">
+                  <figcaption class="mt-2 text-xs font-semibold text-zinc-500">${escapeHtml(item.name)}</figcaption>
+                </figure>
+              `).join('')}
+            </div>
+          ` : ''}
+
+          ${fileArtifacts.length ? `
+            <div class="mt-4 flex flex-wrap gap-2">
+              ${fileArtifacts.map((item) => `<a href="${item.url}" target="_blank" class="rounded-md border border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50">${escapeHtml(item.name)}</a>`).join('')}
+            </div>
+          ` : ''}
+          ${renderAskPanel('computation')}
+        </section>
+      `;
+    }
+
+    function renderAskPanel(key) {
+      return `
+        <div class="mt-4 border-t border-zinc-200 pt-4">
+          <div class="grid gap-3">
+            <textarea data-question-for="${escapeHtml(key)}" rows="2" placeholder="选中本区段落后输入问题" class="w-full resize-y rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm focus:border-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-100"></textarea>
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <button type="button" data-ask-action="${escapeHtml(key)}" class="rounded-md bg-zinc-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-400">询问对应 Agent</button>
+              <span class="text-xs font-semibold text-zinc-500">${escapeHtml(agentName(key))}</span>
+            </div>
+            <div data-answer-for="${escapeHtml(key)}" class="hidden rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700"></div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function askSectionAgent(key, button) {
+      if (!currentReport) return;
+      const sectionEl = resultDiv.querySelector(`[data-report-section="${cssEscape(key)}"]`);
+      const questionInput = resultDiv.querySelector(`[data-question-for="${cssEscape(key)}"]`);
+      const answerEl = resultDiv.querySelector(`[data-answer-for="${cssEscape(key)}"]`);
+      const question = questionInput ? questionInput.value.trim() : '';
+
+      if (!question) {
+        showAskAnswer(answerEl, '请先输入问题。', false);
+        return;
+      }
+
+      const selectedText = getSelectedTextWithin(sectionEl)
+        || (lastReportSelection.sectionKey === key ? lastReportSelection.text : '');
+      const sectionMarkdown = getSectionMarkdown(key, sectionEl);
+      button.disabled = true;
+      button.textContent = '询问中...';
+      showAskAnswer(answerEl, '对应 Agent 正在复核...', false);
+
+      try {
+        const response = await fetch('/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            apiKey: apiKeyInput.value.trim(),
+            modelStrategy: modelStrategy.value,
+            model: customModelInput.value.trim() || modelSelect.value,
+            customModel: customModelInput.value.trim(),
+            sectionKey: key,
+            sectionTitle: sectionEl ? sectionEl.dataset.sectionTitle : agentName(key),
+            selectedText,
+            paragraphText: selectedText,
+            sectionMarkdown,
+            question,
+            report: currentReport
+          })
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || '追问失败');
+        }
+
+        applyAgentRevision(key, selectedText, data, sectionEl);
+        const note = data.hasCorrection
+          ? `\n\n**已自动修订：** ${data.correctionNote || '对应段落已更新。'}`
+          : '';
+        showAskAnswer(answerEl, `${data.answer || ''}${note}`, true);
+        if (window.MathJax && window.MathJax.typesetPromise) {
+          window.MathJax.typesetPromise([sectionEl, answerEl]).catch((error) => console.error('MathJax 渲染失败:', error));
+        }
+      } catch (error) {
+        showAskAnswer(answerEl, `追问失败：${error.message}`, false);
+      } finally {
+        button.disabled = false;
+        button.textContent = '询问对应 Agent';
+      }
+    }
+
+    function applyAgentRevision(key, selectedText, data, sectionEl) {
+      if (!data.hasCorrection || !sectionEl) return;
+
+      const contentEl = sectionEl.querySelector('[data-section-content]');
+      if (data.revisedSectionMarkdown && contentEl && ['rag', 'diagnosis', 'advice'].includes(key)) {
+        currentReport[key] = data.revisedSectionMarkdown;
+        contentEl.innerHTML = renderMarkdown(data.revisedSectionMarkdown);
+        return;
+      }
+
+      if (data.correctedText && selectedText && contentEl && ['rag', 'diagnosis', 'advice'].includes(key)) {
+        const original = currentReport[key] || '';
+        if (original.includes(selectedText)) {
+          currentReport[key] = original.replace(selectedText, data.correctedText);
+          contentEl.innerHTML = renderMarkdown(currentReport[key]);
+          return;
+        }
+      }
+
+      if (data.correctedText && selectedText) {
+        replaceActiveSelection(sectionEl, data.correctedText);
+      }
+    }
+
+    function replaceActiveSelection(sectionEl, replacement) {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0 || !selection.toString().trim()) return;
+      const range = selection.getRangeAt(0);
+      const node = range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+        ? range.commonAncestorContainer.parentElement
+        : range.commonAncestorContainer;
+      if (!sectionEl.contains(node)) return;
+      range.deleteContents();
+      range.insertNode(document.createTextNode(replacement));
+      selection.removeAllRanges();
+    }
+
+    function showAskAnswer(answerEl, markdown, renderAsMarkdown) {
+      if (!answerEl) return;
+      answerEl.classList.remove('hidden');
+      answerEl.innerHTML = renderAsMarkdown
+        ? `<div class="prose max-w-none">${renderMarkdown(markdown)}</div>`
+        : escapeHtml(markdown);
+    }
+
+    function getSelectedTextWithin(sectionEl) {
+      if (!sectionEl) return '';
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) return '';
+      const text = selection.toString().trim();
+      if (!text) return '';
+
+      const range = selection.getRangeAt(0);
+      const node = range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+        ? range.commonAncestorContainer.parentElement
+        : range.commonAncestorContainer;
+      return sectionEl.contains(node) ? text : '';
+    }
+
+    function getSectionMarkdown(key, sectionEl) {
+      if (['rag', 'diagnosis', 'advice'].includes(key)) {
+        return currentReport[key] || '';
+      }
+      return sectionEl ? sectionEl.innerText.slice(0, 6000) : '';
+    }
+
+    function agentName(key) {
+      return {
+        rag: '讲义理解 Agent',
+        computation: '计算复核 Agent',
+        diagnosis: '物理诊断 Agent',
+        advice: '实验优化 Agent'
+      }[key] || '诊断 Agent';
+    }
+
+    function cssEscape(value) {
+      if (window.CSS && window.CSS.escape) return window.CSS.escape(value);
+      return String(value).replace(/"/g, '\\"');
+    }
+
+    function renderCodePanel(code) {
+      return `
+        <section class="rounded-lg border border-zinc-300 bg-white p-4 shadow-sm">
+          <h3 class="mb-3 text-base font-bold text-zinc-950">生成的 Python 脚本</h3>
+          <pre class="max-h-[520px] overflow-auto rounded-lg bg-zinc-950 p-4 text-xs leading-5 text-emerald-100"><code>${escapeHtml(code)}</code></pre>
+        </section>
+      `;
+    }
+
+    function renderExecutionLog(execution) {
+      const stdout = execution.stdout || '';
+      const stderr = execution.stderr || '';
+
+      return `
+        <section class="rounded-lg border border-zinc-300 bg-white p-4 shadow-sm">
+          <h3 class="mb-3 text-base font-bold text-zinc-950">执行日志</h3>
+          <details class="rounded-md border border-zinc-200 bg-zinc-50 p-3" ${stderr ? 'open' : ''}>
+            <summary class="cursor-pointer text-sm font-semibold text-zinc-700">stdout / stderr</summary>
+            <pre class="mt-3 max-h-72 overflow-auto whitespace-pre-wrap text-xs leading-5 text-zinc-700">${escapeHtml([stdout, stderr].filter(Boolean).join('\n\n--- stderr ---\n'))}</pre>
+          </details>
+        </section>
+      `;
+    }
+
+    function renderMarkdown(value) {
+      return DOMPurify.sanitize(marked.parse(value));
+    }
+
+    function formatModelConfig(modelConfig) {
+      if (!modelConfig) return '默认配置';
+      if (modelConfig.strategy === 'single') return modelConfig.selectedModel || '自选模型';
+      const models = modelConfig.models || {};
+      return `多 Agent：${[models.rag, models.code, models.diagnosis, models.advice].filter(Boolean).join(' / ')}`;
+    }
+
+    function restoreModelSettings() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('physicsAgentModelSettings') || '{}');
+        if (saved.modelStrategy) modelStrategy.value = saved.modelStrategy;
+        if (saved.model) modelSelect.value = saved.model;
+        if (saved.customModel) customModelInput.value = saved.customModel;
+      } catch (_) {
+        return;
+      }
+    }
+
+    function persistModelSettings() {
+      localStorage.setItem('physicsAgentModelSettings', JSON.stringify({
+        modelStrategy: modelStrategy.value,
+        model: modelSelect.value,
+        customModel: customModelInput.value.trim()
+      }));
+    }
+
+    async function loadServerConfig() {
+      try {
+        const response = await fetch('/config');
+        if (!response.ok) return;
+        const config = await response.json();
+        apiKeyInput.placeholder = config.hasServerApiKey
+          ? '留空使用服务器测试 Key'
+          : '请输入 SiliconFlow API Key';
+      } catch (_) {
+        return;
+      }
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function formatValue(value) {
+      if (value === null || value === undefined || value === '') return '-';
+      if (typeof value === 'number') {
+        if (!Number.isFinite(value)) return String(value);
+        if (Math.abs(value) >= 1000 || Math.abs(value) < 0.001) return value.toExponential(3);
+        return Number(value.toPrecision(5)).toString();
+      }
+      return value;
+    }
+  </script>
+</body>
+</html>

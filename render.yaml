@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: physics-ai-agent-upgraded
+    runtime: docker
+    plan: free
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_PATH
+        value: python3
+      - key: ANALYSIS_TIMEOUT_MS
+        value: 90000
+      - key: SILICON_API_KEY
+        sync: false
